@@ -140,7 +140,7 @@ class MqttApp(App):
         popup_content.add_widget(popup_title)
 
         # Add a smaller header with instructions
-        popup_header = Label(text="Scan Container", font_size=20, size_hint_y=None, height=40)
+        popup_header = Label(text="Scan Container", font_size=35, size_hint_y=None, height=50)
         popup_content.add_widget(popup_header)
 
         # Create a TextInput widget (invisible)
@@ -178,6 +178,7 @@ class MqttApp(App):
         def on_focus_change_input(instance, value):
             if not value:  # If the input box loses focus
                 badge_text.focus = True
+                popup_header.text = "Scan Badge"
 
         def on_focus_change_badge(instance, value):
             if not value:  # If the input box loses focus
@@ -201,7 +202,7 @@ class MqttApp(App):
             popup_content.add_widget(popup_title)
 
             # Add a smaller header with instructions
-            popup_header = Label(text="Scan Container", font_size=20, size_hint_y=None, height=40)
+            popup_header = Label(text="Scan Container", font_size=30, size_hint_y=None, height=40)
             popup_content.add_widget(popup_header)
 
             # Create a TextInput widget (invisible)
