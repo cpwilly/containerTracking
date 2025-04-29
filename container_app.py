@@ -7,12 +7,27 @@ from kivy.uix.popup import Popup
 from kivy.clock import Clock
 import paho.mqtt.client as mqtt
 from kivy.uix.textinput import TextInput
+import socket
+import fcntl
+import struct
 
 
 # MQTT settings for local broker
 BROKER = "localhost"
 PORT = 1883
 TOPIC = "container_tracking"
+
+def get_ip_address(ifname: str) -> str:
+    """Get the IP address associated with the given network interface (Linux only)."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        return socket.inet_ntoa(fcntl.ioctl(
+            s.fileno(),
+            0x8915,  # SIOCGIFADDR
+            struct.pack('256s', bytes(ifname[:15], 'utf-8'))
+        )[20:24])
+    except Exception:
+        return 'IP not found'
 
 class MqttClient:
     def __init__(self, app):
@@ -59,6 +74,20 @@ class MqttApp(App):
         # Placeholder for success/error feedback
         self.feedback_label = Label(text="", font_size=20, size_hint_y=None, height=40)
         self.layout.add_widget(self.feedback_label)
+        
+        # Show IP Address at the bottom
+        ip_address = get_ip_address("wlan0")
+        self.ip_label = Label(
+            text=f"Device IP: {ip_address}",
+            font_size=16,
+            size_hint_y=None,
+            height=30,
+            halign="center",
+            valign="middle",
+            color=(0.5, 0.5, 0.5, 1)
+        )
+        self.layout.add_widget(self.ip_label)
+
 
         return self.layout
 

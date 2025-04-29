@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Container Tracker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body class="bg-light">
+
+    <div class="container py-5">
+        <h1 class="mb-5 text-center">Reusable Container Tracker</h1>
+
+        <div class="row g-4">
+            <!-- Add User -->
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">Add User</div>
+                    <div class="card-body">
+                        <form action="/add_user" method="post" class="row g-2">
+                            <div class="col-md-6">
+                                <input type="text" name="name" class="form-control" placeholder="User Name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <input type="text" name="badgeID" class="form-control" placeholder="Badge ID" required>
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary w-100">Add User</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Container -->
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-success text-white">Add Container</div>
+                    <div class="card-body">
+                        <form action="/add_container" method="post" class="row g-2">
+                            <div class="col-12">
+                                <input type="text" name="serial_number" class="form-control" placeholder="Container Serial" required>
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-success w-100">Add Container</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Users Table -->
+        <div class="mt-5">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">Users</div>
+                <div class="card-body table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Badge ID</th>
+                                <th>Containers Checked Out</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td>{{ user[1] }}</td>
+                                <td>{{ user[2] }}</td>
+                                <td>{{ user[3] }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-info show-containers" data-id="{{ user[0] }}" data-name="{{ user[1] }}">View</button>
+                                    <form action="/delete_user/{{ user[0] }}" method="post" class="d-inline" onsubmit="return confirm('Delete this user?')">
+                                        <button class="btn btn-sm btn-outline-danger">Delete</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Containers Table -->
+        <div class="mt-5">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">Containers</div>
+                <div class="card-body table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Serial</th>
+                                <th>Assigned To</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for container in containers %}
+                            <tr>
+                                <td>{{ container[1] }}</td>
+                                <td>{{ container[2] or 'Not Assigned' }}</td>
+                                <td>
+                                    <form action="/delete_container/{{ container[0] }}" method="post" onsubmit="return confirm('Delete this container?')">
+                                        <button class="btn btn-sm btn-outline-danger">Delete</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal -->
+        <div class="modal fade" id="containersModal" tabindex="-1" aria-labelledby="containersModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="containersModalLabel">Containers Checked Out</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <ul id="containers-list" class="list-group"></ul>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        $(document).ready(function () {
+            $('.show-containers').click(function (event) {
+                event.preventDefault();
+                var userId = $(this).data('id');
+                var userName = $(this).data('name');
+                $('#containersModalLabel').text('Containers Checked Out by ' + userName);
+
+                $.get('/users', function (data) {
+                    var user = data.find(function (u) { return u.id === userId; });
+
+                    var containersList = $('#containers-list');
+                    containersList.empty();
+
+                    if (user && user.containers.length > 0) {
+                        user.containers.forEach(function (container) {
+                            containersList.append('<li class="list-group-item">' + container + '</li>');
+                        });
+                    } else {
+                        containersList.append('<li class="list-group-item text-muted">No containers checked out</li>');
+                    }
+
+                    var modal = new bootstrap.Modal(document.getElementById('containersModal'));
+                    modal.show();
+                });
+            });
+        });
+    </script>
+</body>
+</html>

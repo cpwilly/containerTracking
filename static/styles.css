@@ -1,0 +1,31 @@
+body {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background-color:rgb(164, 184, 255); /* Light gray background */
+}
+
+.card {
+    background-color: #ffffff; /* Keep cards white for contrast */
+    border-radius: 0.75rem;
+    border: none;
+}
+
+.card-header {
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.table thead {
+    background-color: #f1f1f1;
+}
+
+.table td, .table th {
+    vertical-align: middle;
+}
+
+.btn-sm {
+    margin-right: 4px;
+}
+
+.modal-title {
+    font-weight: 500;
+}

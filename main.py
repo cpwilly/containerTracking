@@ -1,5 +1,8 @@
 import sqlite3
 import paho.mqtt.client as mqtt
+from flask import Flask, render_template, request, redirect, url_for, jsonify
+import threading
+
 
 # MQTT settings for local broker
 BROKER = "localhost"  # Localhost for local MQTT broker
@@ -212,9 +215,12 @@ def on_message(client, userdata, msg):
         else:
             print("Error: Invalid message format. Expected format 'control:return:{container_serial}'.")
 
-        
+def run_flask():
+    app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
 
 def main():
+    threading.Thread(target=run_flask, daemon=True).start()
+    
     # Connect to MQTT broker
     mqtt_client.on_message = on_message  # 👈 Add this line
     mqtt_client.connect(BROKER, PORT, 60)
@@ -260,6 +266,89 @@ def main():
         else:
             print("Invalid choice, please try again.")
             publish_instruction("Invalid choice. Please try again")
+
+app = Flask(__name__)
+
+@app.route('/', methods=['GET'])
+def index():
+    conn = sqlite3.connect('container_tracking.db')
+    cursor = conn.cursor()
+
+    # Fetch users along with the count of containers they have checked out
+    cursor.execute("""
+        SELECT users.id, users.name, users.badgeID, COUNT(containers.id) as container_count
+        FROM users
+        LEFT JOIN containers ON users.id = containers.user_id
+        GROUP BY users.id
+    """)
+    users = cursor.fetchall()
+
+    # Fetch containers with associated user names
+    cursor.execute("""
+        SELECT containers.id, containers.serial_number, users.name
+        FROM containers
+        LEFT JOIN users ON containers.user_id = users.id
+    """)
+    containers = cursor.fetchall()
+
+    conn.close()
+    return render_template('index.html', users=users, containers=containers)
+
+
+@app.route('/add_user', methods=['POST'])
+def add_user_route():
+    name = request.form['name']
+    badgeID = request.form['badgeID']
+    add_user(name, badgeID)
+    return redirect(url_for('index'))
+
+@app.route('/delete_user/<int:user_id>', methods=['POST'])
+def delete_user(user_id):
+    conn = sqlite3.connect('container_tracking.db')
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM users WHERE id=?", (user_id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/add_container', methods=['POST'])
+def add_container_route():
+    serial = request.form['serial_number']
+    add_container(serial)
+    return redirect(url_for('index'))
+
+@app.route('/delete_container/<int:container_id>', methods=['POST'])
+def delete_container(container_id):
+    conn = sqlite3.connect('container_tracking.db')
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM containers WHERE id=?", (container_id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/users', methods=['GET'])
+def get_users_with_containers():
+    conn = sqlite3.connect('container_tracking.db')
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, name, badgeID FROM users")
+    users = cursor.fetchall()
+
+    user_list = []
+    for user in users:
+        user_id, name, badgeID = user
+        cursor.execute("SELECT serial_number FROM containers WHERE user_id=?", (user_id,))
+        containers = [row[0] for row in cursor.fetchall()]
+        user_list.append({
+            'id': user_id, 
+            'name': name,
+            'badgeID': badgeID,
+            'containers': containers
+        })
+
+    conn.close()
+    return jsonify(user_list)
+
 
 
 if __name__ == "__main__":
