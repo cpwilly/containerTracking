@@ -5,8 +5,8 @@ import threading
 
 
 # MQTT settings for local broker
-BROKER = "localhost"  # Localhost for local MQTT broker
-PORT = 1883  # Default MQTT port
+BROKER = "localhost"  
+PORT = 1883 
 TOPIC = "container_tracking"
 FEED = "container_controls"
 
@@ -20,14 +20,14 @@ def create_database():
     conn = sqlite3.connect('container_tracking.db')
     cursor = conn.cursor()
 
-    # Create table for containers
+    # Containers
     cursor.execute('''CREATE TABLE IF NOT EXISTS containers (
                         id INTEGER PRIMARY KEY,
                         serial_number TEXT UNIQUE,
                         user_id INTEGER,
                         FOREIGN KEY (user_id) REFERENCES users(id))''')
 
-    # Create table for users (with name and badgeID)
+    # Users
     cursor.execute('''CREATE TABLE IF NOT EXISTS users (
                         id INTEGER PRIMARY KEY,
                         name TEXT UNIQUE,
@@ -41,7 +41,7 @@ def add_container(serial_number):
     conn = sqlite3.connect('container_tracking.db')
     cursor = conn.cursor()
     
-    # Check if container already exists
+    # Already exists
     cursor.execute("SELECT * FROM containers WHERE serial_number=?", (serial_number,))
     if cursor.fetchone():
         print(f"Container {serial_number} already exists.")
@@ -59,7 +59,7 @@ def add_user(name, badgeID):
     conn = sqlite3.connect('container_tracking.db')
     cursor = conn.cursor()
     
-    # Check if user already exists
+    # Already exists
     cursor.execute("SELECT * FROM users WHERE name=? OR badgeID=?", (name, badgeID))
     if cursor.fetchone():
         print(f"User {name} with badge ID {badgeID} already exists.")
@@ -93,7 +93,7 @@ def checkout_container(container_serial, user_badgeID):
         publish_instruction(f"Error User with badge ID {user_badgeID} does not exist")
         return
 
-    # Assign the container to the user (update user_id in containers table)
+    # Assign
     cursor.execute("UPDATE containers SET user_id=? WHERE serial_number=?", (user[0], container_serial))
     conn.commit()
     print(f"Container {container_serial} checked out to {user[1]} (Badge ID: {user_badgeID}).")
@@ -114,7 +114,7 @@ def return_container(container_serial):
         publish_instruction(f"Error Container {container_serial} does not exist")
         return
     
-    # Remove user association (set user_id to NULL)
+    # Remove user association
     cursor.execute("UPDATE containers SET user_id=NULL WHERE serial_number=?", (container_serial,))
     conn.commit()
     print(f"Container {container_serial} returned and unassigned from user.")
@@ -155,7 +155,7 @@ def show_users_and_containers():
 
 def publish_instruction(instruction):
     """Publish an instruction to the MQTT broker."""
-    print(f"Publishing to MQTT: {instruction}")  # Print the instruction being published for debug purposes
+    print(f"Publishing to MQTT: {instruction}")
     mqtt_client.publish(TOPIC, instruction)
 
 def display_menu():
@@ -189,28 +189,26 @@ def on_message(client, userdata, msg):
     if message == "test":
         mqttMode = True
         handle_operation("checkout")
-    elif "control:checkout" in message:  # Check if message contains "control:checkout"
-        # Split the message by ":"
+    elif "control:checkout" in message:  
+        # Split the message with :
         parts = message.split(":")
         
-        # Ensure there are 4 parts (including "control", "checkout", container serial, and badge ID)
+        # Ensure there are 4 parts ( control, checkout, container serial, badge ID)
         if len(parts) == 4:
             container_serial = parts[2]
             user_badgeID = parts[3]
             
-            # Pass the parsed values to the checkout_container function
             checkout_container(container_serial, user_badgeID)
         else:
             print("Error: Invalid message format. Expected format 'control:checkout:{container_serial}:{user_badgeID}'.")
     elif "control:return" in message:  # Check if message contains "control:checkout"
-        # Split the message by ":"
+        # Split the message with :
         parts = message.split(":")
         
-        # Ensure there are 4 parts (including "control", "checkout", container serial, and badge ID)
+        # Ensure there are 3 parts ( control, checkout, container serial)
         if len(parts) == 3:
             container_serial = parts[2]
             
-            # Pass the parsed values to the checkout_container function
             return_container(container_serial)
         else:
             print("Error: Invalid message format. Expected format 'control:return:{container_serial}'.")
@@ -222,50 +220,18 @@ def main():
     threading.Thread(target=run_flask, daemon=True).start()
     
     # Connect to MQTT broker
-    mqtt_client.on_message = on_message  # 👈 Add this line
+    mqtt_client.on_message = on_message  
     mqtt_client.connect(BROKER, PORT, 60)
-    mqtt_client.subscribe(TOPIC)         # 👈 And this one
-    mqtt_client.loop_start()  # Start MQTT loop
+    mqtt_client.subscribe(TOPIC)        
+    mqtt_client.loop_start() 
 
-    create_database()  # Initialize the database
+    create_database()  
     
-    while not mqttMode:
-        choice = display_menu()
-
-        if choice == '1':
-            # Add containers and users
-            mode = input("Would you like to add a container (C) or a user (U)? ").strip().upper()
-            if mode == 'C':
-                serial_number = input("Enter container serial number: ").strip()
-                add_container(serial_number)
-            elif mode == 'U':
-                name = input("Enter user name: ").strip()
-                badgeID = input("Enter user badge ID: ").strip()
-                add_user(name, badgeID)
-            else:
-                print("Invalid choice. Please choose either 'C' for container or 'U' for user.")
-
-        elif choice == '2':
-            # Checkout container to a user
-            handle_operation("checkout")
-
-        elif choice == '3':
-            # Return container
-            handle_operation("return")
-
-        elif choice == '4':
-            # Show users and containers
-            show_users_and_containers()
-
-        elif choice == '5':
-            # Exit the application
-            print("Exiting the program...")
-            publish_instruction("Exiting the system. Goodbye! 👋")
-            break
-
-        else:
-            print("Invalid choice, please try again.")
-            publish_instruction("Invalid choice. Please try again")
+    try:
+        while True:
+            pass
+    except KeyboardInterrupt:
+        print("Service interrupted. Shutting down.")
 
 app = Flask(__name__)
 
@@ -274,7 +240,6 @@ def index():
     conn = sqlite3.connect('container_tracking.db')
     cursor = conn.cursor()
 
-    # Fetch users along with the count of containers they have checked out
     cursor.execute("""
         SELECT users.id, users.name, users.badgeID, COUNT(containers.id) as container_count
         FROM users
@@ -283,7 +248,6 @@ def index():
     """)
     users = cursor.fetchall()
 
-    # Fetch containers with associated user names
     cursor.execute("""
         SELECT containers.id, containers.serial_number, users.name
         FROM containers
@@ -291,8 +255,22 @@ def index():
     """)
     containers = cursor.fetchall()
 
+    cursor.execute("SELECT COUNT(*) FROM containers WHERE user_id IS NOT NULL")
+    checked_out = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM containers WHERE user_id IS NULL")
+    available = cursor.fetchone()[0]
+
     conn.close()
-    return render_template('index.html', users=users, containers=containers)
+
+    return render_template(
+        'index.html',
+        users=users,
+        containers=containers,
+        checked_out=checked_out,
+        available=available
+    )
+
 
 
 @app.route('/add_user', methods=['POST'])
@@ -348,8 +326,6 @@ def get_users_with_containers():
 
     conn.close()
     return jsonify(user_list)
-
-
 
 if __name__ == "__main__":
     main()

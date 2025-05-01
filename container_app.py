@@ -23,7 +23,7 @@ def get_ip_address(ifname: str) -> str:
     try:
         return socket.inet_ntoa(fcntl.ioctl(
             s.fileno(),
-            0x8915,  # SIOCGIFADDR
+            0x8915, 
             struct.pack('256s', bytes(ifname[:15], 'utf-8'))
         )[20:24])
     except Exception:
@@ -40,7 +40,6 @@ class MqttClient:
 
     def on_message(self, client, userdata, msg):
         instruction = msg.payload.decode('utf-8')
-        # Schedule the UI update to be run in the main thread
         Clock.schedule_once(lambda dt: self.app.display_instruction(instruction))
 
     def start(self):
@@ -53,7 +52,7 @@ class MqttApp(App):
     def build(self):
         self.layout = BoxLayout(orientation='vertical', padding=20, spacing=10)
         
-        # Welcome screen setup
+        # Welcome screen 
         self.welcome_label = Label(text="Container Tracking", font_size=25, halign='center', color=(0, 0, 1, 1))
         self.layout.add_widget(self.welcome_label)
 
@@ -71,11 +70,11 @@ class MqttApp(App):
         self.layout.add_widget(self.return_button)
         self.return_button.bind(on_press=self.return_mode)
 
-        # Placeholder for success/error feedback
+        # Placeholder for success/error feedback if we need it
         self.feedback_label = Label(text="", font_size=20, size_hint_y=None, height=40)
         self.layout.add_widget(self.feedback_label)
         
-        # Show IP Address at the bottom
+        # Show IP address 
         ip_address = get_ip_address("wlan0")
         self.ip_label = Label(
             text=f"Device IP: {ip_address}",
@@ -101,52 +100,46 @@ class MqttApp(App):
                 self.update_ui("Scan Badge", "Checkout", "Scan User Badge")
         elif "Success" in instruction:
             self.update_ui(instruction, "Success", "", success=True)
-            # Schedule to reset UI after 1 second
+            # one second reset
             Clock.schedule_once(lambda dt: self.reset_ui(), 2)
         elif "Error" in instruction:
             self.update_ui(instruction, "Error", "There was an error!", success=False)
-            # Schedule to reset UI after 1 second
+            # one second reset
             Clock.schedule_once(lambda dt: self.reset_ui(), 2)
         else:
             self.update_ui("Choose a Mode", "No action", "")
 
     def update_ui(self, message, button_text, feedback_message, success=None):
         """Update UI elements based on instruction"""
-        # Update the instruction label
         self.instruction_label.text = message
         
         if success is None:
-            pass  # Do nothing if success is None
+            pass 
         elif success:
             self.show_feedback_popup(success=True, message=message)
         else:
             self.show_feedback_popup(success=False, message=message)
-
-        # Display feedback message for success or error
         self.feedback_label.text = feedback_message
 
     def show_feedback_popup(self, success=True, message="Success"):
         """Show a fullscreen popup with success or error message that auto-dismisses after 1 second."""
-        # Create the content for the popup
         popup_content = BoxLayout(orientation='vertical', padding=0, spacing=0)
         
-        # Create the label for the message
         feedback_label = Label(text=message, font_size=30, color=(1, 1, 1, 1), size_hint=(1, 1))
         popup_content.add_widget(feedback_label)
         
-        # Create the popup
         feedback_popup = Popup(
-            title="",  # No title needed
+            title="",  
             content=popup_content,
-            size_hint=(1, 1),  # Fullscreen
-            auto_dismiss=False  # Prevent automatic dismissal
+            size_hint=(1, 1),  
+            auto_dismiss=False 
         )
         
-        # Set background color based on success or error
+        # Set background color 
         if success:
-            feedback_popup.background_color = (0.2, 0.8, 0.2, 1)  # Green background for success
+            feedback_popup.background_color = (0.2, 0.8, 0.2, 1)  # Green 
         else:
-            feedback_popup.background_color = (0.8, 0.2, 0.2, 1)  # Red background for error
+            feedback_popup.background_color = (0.8, 0.2, 0.2, 1)  # Red
         
         # Show the popup
         feedback_popup.open()
@@ -161,28 +154,25 @@ class MqttApp(App):
         
     def checkout_mode(self, instance):
         """Show a popup for scanning when the button is pressed"""
-        # Create a popup with a TextInput to capture user input
+        # Create a popup with a TextInput
         popup_content = BoxLayout(orientation='vertical', padding=20)
         
-        # Add a large title label
         popup_title = Label(text="Checkout", font_size=40, size_hint_y=None, height=60)
         popup_content.add_widget(popup_title)
 
-        # Add a smaller header with instructions
         popup_header = Label(text="Scan Container", font_size=35, size_hint_y=None, height=50)
         popup_content.add_widget(popup_header)
 
-        # Create a TextInput widget (invisible)
+        # make input area invisable
         input_text = TextInput(hint_text="Type here", multiline=False, opacity=0, height=0)
         popup_content.add_widget(input_text)
         badge_text = TextInput(hint_text="Type here", multiline=False, opacity=0, height=0)
         popup_content.add_widget(badge_text)
 
-        # Button to submit input (to simulate scan and submit)
+        # hidden button
         submit_button = Button(opacity=0, text="", size_hint=(1, 0.25))
         popup_content.add_widget(submit_button)
 
-        # Create the popup
         popup = Popup(title="Input", content=popup_content, size_hint=(None, None), size=(400, 400))
 
         # When the submit button is pressed, publish the input as MQTT message
@@ -190,86 +180,68 @@ class MqttApp(App):
             input_value = input_text.text.strip()
             badge_value = badge_text.text.strip()
             if input_value:
-                # Publish the control input with the user input
                 self.mqtt_client.client.publish(TOPIC, f"control:checkout:{input_value}:{badge_value}")
             popup.dismiss()
 
         submit_button.bind(on_press=on_submit)
 
-        # Define the on_open event for the popup to focus on the TextInput after it opens
         def on_popup_open(popup_instance):
             input_text.focus = True  # Focus on the input box after opening the popup
 
-        # Bind the on_open event to focus on the input box
         popup.bind(on_open=on_popup_open)
 
-        # Bind to the focus property of the TextInput
         def on_focus_change_input(instance, value):
             if not value:  # If the input box loses focus
                 badge_text.focus = True
                 popup_header.text = "Scan Badge"
 
         def on_focus_change_badge(instance, value):
-            if not value:  # If the input box loses focus
+            if not value:  # If the badge box loses focus
                 on_submit(submit_button)  # Automatically call submit when focus is lost
                 
         input_text.bind(focus=on_focus_change_input)
         badge_text.bind(focus=on_focus_change_badge)
 
-        # Open the popup
         popup.open()
 
-
+    #Return screen, same logic as checkout with only needing container
     def return_mode(self, instance):
             """Show a popup for scanning when the button is pressed"""
 
-            # Create a popup with a TextInput to capture user input
             popup_content = BoxLayout(orientation='vertical', padding=20)
             
-            # Add a large title label
             popup_title = Label(text="Return", font_size=40, size_hint_y=None, height=60)
             popup_content.add_widget(popup_title)
 
-            # Add a smaller header with instructions
             popup_header = Label(text="Scan Container", font_size=30, size_hint_y=None, height=40)
             popup_content.add_widget(popup_header)
 
-            # Create a TextInput widget (invisible)
             input_text = TextInput(hint_text="Type here", multiline=False, opacity=0, height=0)
             popup_content.add_widget(input_text)
 
-            # Button to submit input (to simulate scan and submit)
             submit_button = Button(opacity=0, text="", size_hint=(1, 0.25))
             popup_content.add_widget(submit_button)
 
-            # Create the popup
             popup = Popup(title="Input", content=popup_content, size_hint=(None, None), size=(400, 400))
 
-            # When the submit button is pressed, publish the input as MQTT message
             def on_submit(instance):
                 input_value = input_text.text.strip()
                 if input_value:
-                    # Publish the control input with the user input
                     self.mqtt_client.client.publish(TOPIC, f"control:return:{input_value}")
                 popup.dismiss()
 
             submit_button.bind(on_press=on_submit)
 
-            # Define the on_open event for the popup to focus on the TextInput after it opens
             def on_popup_open(popup_instance):
-                input_text.focus = True  # Focus on the input box after opening the popup
+                input_text.focus = True
 
-            # Bind the on_open event to focus on the input box
             popup.bind(on_open=on_popup_open)
 
-            # Bind to the focus property of the TextInput
             def on_focus_change_input(instance, value):
-                if not value:  # If the input box loses focus
-                    on_submit(submit_button)  # Automatically call submit when focus is lost
+                if not value:  
+                    on_submit(submit_button) 
 
-                    
             input_text.bind(focus=on_focus_change_input)
-            # Open the popup
             popup.open()
 
 
